@@ -52,7 +52,7 @@ class RandomUserPostBot(object):
     ]
 
     def generate(self, user, when):
-        if random.random() > .5:
+        if random.random() > 2:
             driver = webdriver.Chrome(r'chromedriver')
             driver.get('https://tomforth.co.uk/guardiancomments/')
             comment = driver.find_element_by_class_name('commentBody')
