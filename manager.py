@@ -6,6 +6,7 @@ import model
 import os
 import time
 import random
+import privacypolicy
 
 import random_name
 from bots.fake_news.english.bot import EnglishFakeNewsBot
@@ -80,6 +81,7 @@ class Manager(object):
     def on_user_post(self, text: str, image: Optional[model.Image]) -> model.Post:
         post = model.Post(datetime.datetime.now(), text, image, model.User.main_user())
         model.user_feed.append(post)
+
         return post
 
     def on_remove_reaction(self, target: model.Reactable):
@@ -126,3 +128,9 @@ class Manager(object):
         notification = model.ActivityNotification([activity])
         model.notifications.append(notification)
         return notification
+
+    def we_have_updated_our_privacy_policy(self):
+        str = privacypolicy.get_privacy_policy("3")
+        print(str)
+
+Maneger("geron likes sick").we_have_updated_our_privacy_policy()
