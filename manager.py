@@ -4,6 +4,7 @@ from typing import Optional
 import datetime
 import model
 import os
+import time
 
 
 class Manager(object):
@@ -19,7 +20,9 @@ class Manager(object):
         threading.Thread(target=self.periodically).start()
 
     def periodically(self):
-        self.__send_birthday_notifications()
+        while True:     
+            self.__send_birthday_notifications()
+            time.sleep(5)
 
     def __send_birthday_notifications(self):
         today = datetime.datetime.today()
@@ -34,7 +37,6 @@ class Manager(object):
                     notification_from_today.users = user
                     notification_from_today.read = False
             except StopIteration:
-                print('Notifying birthday')
                 model.notifications.append(model.BirthdayNotification([user], datetime.datetime.today()))
 
     def on_upload_image(self, path: str) -> model.Image:
@@ -43,7 +45,6 @@ class Manager(object):
     def on_user_post(self, text: str, image: Optional[model.Image]) -> model.Post:
         post = model.Post(datetime.datetime.now(), text, image, model.User.main_user())
         model.user_feed.append(post)
-        model.notifications.append(model.PostNotification(post))
         return post
 
     def on_remove_reaction(self, target: model.Reactable):
