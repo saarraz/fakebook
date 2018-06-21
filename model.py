@@ -90,7 +90,7 @@ class User(Node):
         self.gender = gender
         self.full_name = full_name
         self.profile_picture = profile_picture
-        self.has_birthday = False
+        self.birthday = None
         self.mode = self.NORMAL
 
     def to_json(self):
@@ -219,7 +219,7 @@ class Notification(Node):
             'time': time.mktime(self.time().timetuple()),
             'kind': self.__class__.KIND,
             'text': self.format(),
-            'image': self.image(),
+            'image': self.image().id,
             'read': self.read
         }
 
@@ -234,17 +234,16 @@ def users_string(users):
 
 
 class BirthdayNotification(Notification):
-
     KIND = 0
 
     ACTION_CALLS = [
-        'Try to ignore this elegantly',
+        'Try to ignore this elegantly.',
         'Say happy birthday then continue ignoring {them}.',
         'Copy your birthday wishes from last year.',
         'Just so you know, {they} didn\'t wish you anything on your birthday.'
     ]
 
-    def __init__(self, users: [User], date: datetime.datetime):
+    def __init__(self, users: List[User], date: datetime.datetime):
         super(BirthdayNotification, self).__init__(date)
         self.date = date
         self.users = users
@@ -260,11 +259,13 @@ class BirthdayNotification(Notification):
 
     def format(self):
         if len(self.users) == 1:
-            return 'It\'s ${}$\'s birthday today.'
+            return 'It\'s ${}$\'s birthday today. {}'.format(self.users[0].full_name, self.format_action_call())
         elif len(self.users) == 2:
-            return '${}$ and ${}$ have birthdays today. ' + self.action_call
+            return '${}$ and ${}$ have birthdays today. {}'.format(self.users[0].full_name, self.users[1].full_name,
+                                                                   self.format_action_call())
         else:
-            return '${}$ and {} others have birthdays today. ' + self.action_call
+            return '${}$ and {} others have birthdays today. {}'.format(self.users[0], len(self.users) - 1,
+                                                                        self.format_action_call())
 
     def image(self):
         return self.users[0].profile_picture
@@ -279,7 +280,12 @@ class PostNotification(Notification):
         self.post = post
 
     def format(self):
-        return '${}$ posted'.format(self.post.user.full_name)
+        if self.post.image is not None:
+            return '${user}$ uploaded a photo.'.format(user=self.post.user.full_name,
+                                                            their='his' if self.post.user else 'her')
+        return '${user}$ updated {their} status.'.format(user=self.post.user.full_name,
+                                                         their={User.GENDER_MALE: 'his', User.GENDER_FEMALE: 'her'}
+                                                                   [self.post.user.gender])
 
     def image(self):
         return self.post.user.profile_picture
@@ -335,3 +341,4 @@ class ActivityNotification(Notification):
 
 friends = []
 user_feed = []
+notifications = []
