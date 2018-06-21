@@ -6,7 +6,7 @@ from io import StringIO
 import os
 from flask import Flask, Response, send_from_directory, abort, request
 from flask_uploads import UploadSet, configure_uploads, IMAGES
-import models
+import model
 from manager import Manager
 
 app = Flask(__name__)
@@ -28,12 +28,12 @@ def return_json(func):
 def login(access_token):
     global manager
     manager = Manager(access_token)
-    return {'user_id': models.User.main_user().id}
+    return {'user_id': model.User.main_user().id}
 
 
 @app.route('/users/<user_id>', methods=['GET'])
 def user(user_id):
-    return models.User.from_id(user_id).to_json()
+    return model.User.from_id(user_id).to_json()
 
 
 @app.route('/feed/from/<from_time>', methods=['GET'])
@@ -45,7 +45,7 @@ def feed(from_time):
         # Invalid argument
         from_time = datetime.datetime(year=1970, month=1, day=1)
     return {
-        'posts': sorted([post.to_json() for post in models.Post.all() if post.time > from_time],
+        'posts': sorted([post.to_json() for post in model.Post.all() if post.time > from_time],
                         key=lambda post: post['time']),
         'time': time.mktime(datetime.datetime.now().timetuple())
     }
@@ -54,11 +54,15 @@ def feed(from_time):
 @app.route('/notifications/from/<from_time>', methods=['GET'])
 @return_json
 def notifications(from_time):
-    from_time = datetime.datetime.fromtimestamp(int(from_time))
+    try:
+        from_time = datetime.datetime.fromtimestamp(int(from_time))
+    except OSError:
+        # Invalid argument
+        from_time = datetime.datetime(year=1970, month=1, day=1)
     return {
-        'notificatons': sorted([notification.to_json() for notification in models.Notification.all()
-                                if notification.time > from_time],
-                               key=lambda post: post.time),
+        'notificatons': sorted([notification.to_json() for notification in model.notifications
+                                if notification.time() > from_time],
+                               key=lambda notification: notification['time']),
         'time': time.mktime(datetime.datetime.now().timetuple())
     }
 
@@ -66,13 +70,13 @@ def notifications(from_time):
 @app.route('/notifications/<id>/read', methods=['POST'])
 @return_json
 def mark_notification_as_read(id):
-    notification = models.Notification.from_id(int(id))
+    notification = model.Notification.from_id(int(id))
     notification.read = True
 
 
 @app.route('/images/<image_id>', methods=['GET'])
 def image(image_id):
-    img = models.Image.from_id(int(image_id))
+    img = model.Image.from_id(int(image_id))
     send_from_directory(os.path.dirname(img.path), os.path.basename(img.path))
 
 
@@ -88,35 +92,35 @@ def upload_image():
 
 @app.route('/posts/<post_id>/comment', methods=['POST'])
 def comment_on_post(post_id):
-    return comment_on_reactable(models.Post.from_id(post_id))
+    return comment_on_reactable(model.Post.from_id(post_id))
 
 
 @app.route('/comments/<comment_id>/reply', methods=['POST'])
 def reply_to_comment(comment_id):
-    return comment_on_reactable(models.Comment.from_id(comment_id))
+    return comment_on_reactable(model.Comment.from_id(comment_id))
 
 
 @app.route('/posts', methods=['POST'])
 @return_json
 def add_post():
     post = manager.on_user_post(request.form['text'],
-                                models.Image.from_id(int(request.form['image'])) if 'image' in request.form else None)
+                                model.Image.from_id(int(request.form['image'])) if 'image' in request.form else None)
     return {'id': post.id}
 
 
 @app.route('/posts/<post_id>/react', methods=['DELETE', 'POST'])
 def react_to_post(post_id):
-    post = models.Post.from_id(int(post_id))
+    post = model.Post.from_id(int(post_id))
     return react_to_reactable(post)
 
 
 @app.route('/comments/<comment_id>/react', methods=['DELETE', 'POST'])
 def react_to_comment(comment_id):
-    comment = models.Comment.from_id(int(comment_id))
+    comment = model.Comment.from_id(int(comment_id))
     return react_to_reactable(comment)
 
 
-def react_to_reactable(target: models.Reactable):
+def react_to_reactable(target: model.Reactable):
     if request.method == 'DELETE':
         manager.on_remove_reaction(target)
     else:  # POST
@@ -124,7 +128,7 @@ def react_to_reactable(target: models.Reactable):
         manager.on_react(target, type)
 
 
-def comment_on_reactable(target: models.Reactable):
+def comment_on_reactable(target: model.Reactable):
     manager.on_comment(target)
 
 
