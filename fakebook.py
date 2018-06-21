@@ -13,7 +13,7 @@ app = Flask(__name__)
 photos = UploadSet('photos', IMAGES)
 app.config['UPLOADED_PHOTOS_DEST'] = 'images'
 configure_uploads(app, photos)
-manager = None
+manager = Manager('asda')
 
 
 def return_json(func):

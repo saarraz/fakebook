@@ -1,5 +1,9 @@
 import random
 
+import os
+
+import model
+
 FIRST_MALE = ['Abraham', 'Adam', 'Adi', 'Adina', 'Adir', 'Agam', 'Aharon', 'Akiba', 'Akiva', 'Almog', 'Alon', 'Amichai',
               'Amir', 'Amit', 'Amnon', 'Amos', 'Anan', 'Anat', 'Ari', 'Arie', 'Arieh', 'Ariel', 'Arik', 'Aryeh', 'Asa',
               'Asaf', 'Asher', 'Avi', 'Avidan', 'Avihu', 'Aviram', 'Avishai', 'Aviv', 'Aviya', 'Avner', 'Avraham',
@@ -169,6 +173,11 @@ FAMILY = ['Zeisig', 'Gnademann', 'Goldshine', 'Gerlitz', 'Salzkotter', 'Hirschbo
 
 def generate_name(male):
     return '{} {}'.format(random.choice(FIRST_MALE if male else FIRST_FEMALE), random.choice(FAMILY))
+
+
+def generate_pic(male):
+    pics_dir = os.path.join(model.IMAGE_DIR, 'profile', 'male' if male else 'female')
+    return os.path.join(pics_dir, random.choice(os.listdir(pics_dir)))
 
 
 if __name__ == '__main__':

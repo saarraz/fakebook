@@ -20,7 +20,7 @@ class Manager(object):
         self._last_birthday_determination_time = None
         self._bots = [
             EnglishFakeNewsBot(),
-            #RandomUserPostBot()
+            RandomUserPostBot()
         ]
         self.__generate_initial_content()
 
@@ -28,13 +28,17 @@ class Manager(object):
         print('Generating content')
         main_user_photo = model.Image(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saar.jpg'))
         main_user = model.User('Saar Raz', main_user_photo, model.User.GENDER_MALE)
-        friend = model.User('A Friend', main_user_photo, model.User.GENDER_MALE)
+        friend = model.User('Matan Raviv', main_user_photo, model.User.GENDER_MALE)
+        model.friends.append(friend)
+        friend = model.User('Uria Shaul-Mandel', main_user_photo, model.User.GENDER_MALE)
+        model.friends.append(friend)
+        friend = model.User('Dvir Mordechai-Navot', main_user_photo, model.User.GENDER_MALE)
         friend.birthday = datetime.datetime.today()
+        model.friends.append(friend)
         for i in range(2000):
             gender = random.choice([model.User.GENDER_FEMALE, model.User.GENDER_MALE])
             model.random_people.append(model.User(random_name.generate_name(gender == model.User.GENDER_MALE),
-                                                  None, gender))
-        model.friends.append(friend)
+                                                  random_name.generate_pic(gender == model.User.GENDER_MALE), gender))
         model.User.set_main_user(main_user)
         for i in range(15):
             self.post(

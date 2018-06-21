@@ -151,6 +151,7 @@ class Reactable(Node):
 
 
 class Post(Reactable):
+
     def __init__(self, _time: datetime.datetime, _text: str, _img: Optional[Image], poster: Union[User, Page]):
         super(Post, self).__init__()
         self.image = _img
@@ -158,6 +159,7 @@ class Post(Reactable):
         self.time = _time
         self.poster = poster
         self.views = None
+        # self.sentiment =
 
     def to_json(self):
         return {
