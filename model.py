@@ -2,11 +2,13 @@ import abc
 import random
 import time
 from typing import Optional, List, Union
-
+import os
 from PIL import Image as PILImage
 import datetime
 
 next_id = 0
+
+IMAGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'images')
 
 
 class Node(object):
@@ -32,23 +34,27 @@ class Node(object):
         return cls._all.values()
 
     @classmethod
-    def from_id(cls, id : int):
+    def from_id(cls, id: int):
         if cls == Node:
             for clazz in cls.classes:
-                if id in clazz.all:
-                    return clazz.all[id]
-            raise KeyError('No such object')
+                if id in clazz.all():
+                    return clazz.all()[id]
         else:
-            return cls._all[id]
+            if hasattr(cls, '_all'):
+                return cls._all[id]
+        raise KeyError('No such object')
 
     def __init__(self):
         if self.__class__ not in self.classes:
             self.new_node_class(self.__class__)
-        self.id = next_id
+        self.id = self.generate_id()
         self.__class__._all[self.id] = self
 
     def __eq__(self, other):
         return self.id == other.id
+
+    def __hash__(self):
+        return hash(self.id)
 
     @abc.abstractmethod
     def to_json(self):
@@ -59,10 +65,11 @@ class Reaction(object):
     LIKE = 0
     SAD = 1
     LOVE = 2
-    HATE = 3
+    HAHA = 3
     FUCK_YOU = 4
     SHIT = 5
-    TYPES = [LIKE, SAD, LOVE, HATE, FUCK_YOU, SHIT]
+    THROW_UP = 6
+    TYPES = [LIKE, SAD, LOVE, HAHA, FUCK_YOU, SHIT, THROW_UP]
 
     def __init__(self, user, target, type, time):
         self.user = user
@@ -72,7 +79,7 @@ class Reaction(object):
 
     def to_json(self):
         return {
-            'type': type,
+            'type': self.type,
             'time': time.mktime(self.time.timetuple()),
             'user': self.user.id
         }
@@ -109,12 +116,6 @@ class User(Node):
         cls._main_user = user
 
 
-class Page(Node):
-    def __init__(self, name):
-        super(Page, self).__init__()
-        self.name = name
-
-
 class Image(Node):
     def __init__(self, path):
         super(Image, self).__init__()
@@ -124,6 +125,19 @@ class Image(Node):
     def from_file(cls, path):
         return Image(path)
 
+
+class Page(Node):
+    def __init__(self, name: str, profile_picture: Image):
+        super(Page, self).__init__()
+        self.name = name
+        self.profile_picture = profile_picture
+
+    def to_json(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'profile_picture': self.profile_picture.id
+        }
 
 class Reactable(Node):
     def __init__(self):
@@ -137,30 +151,30 @@ class Reactable(Node):
 
 
 class Post(Reactable):
-    def __init__(self, _time: datetime.datetime, _text: str, _img: Optional[Image], _user: User):
+    def __init__(self, _time: datetime.datetime, _text: str, _img: Optional[Image], poster: Union[User, Page]):
         super(Post, self).__init__()
         self.image = _img
         self.text = _text
         self.time = _time
-        self.user = _user
-
-    def comment(self, _text):
-        self.comments.append(Comment(_text, self.name))
+        self.poster = poster
+        self.views = None
 
     def to_json(self):
         return {
             'id': self.id,
-            'user_id': self.user.id,
+            'user_id': self.poster.id if isinstance(self.poster, User) else None,
+            'page_id': self.poster.id if isinstance(self.poster, Page) else None,
             'time': time.mktime(self.time.timetuple()),
             'text': self.text,
             'image': self.image.id if self.image is not None else None,
             'reactions': [reaction.to_json() for reaction in self.reactions.values()],
-            'comments': [comment.to_json() for comment in self.comments]
+            'comments': [comment.to_json() for comment in self.comments],
+            'views': self.views
         }
 
     def target_string(self):
-        return '{whose} {post}'.format(whose='your' if self.user == User.main_user()
-                                                          else '${}$\'s'.format(self.user.full_name),
+        return '{whose} {post}'.format(whose='your' if self.poster == User.main_user()
+                                                          else '${}$\'s'.format(self.poster.full_name),
                                        post='post' if self.image is None else 'photo')
 
 
@@ -281,14 +295,14 @@ class PostNotification(Notification):
 
     def format(self):
         if self.post.image is not None:
-            return '${user}$ uploaded a photo.'.format(user=self.post.user.full_name,
-                                                            their='his' if self.post.user else 'her')
-        return '${user}$ updated {their} status.'.format(user=self.post.user.full_name,
+            return '${user}$ uploaded a photo.'.format(user=self.post.poster.full_name,
+                                                       their='his' if self.post.poster else 'her')
+        return '${user}$ updated {their} status.'.format(user=self.post.poster.full_name,
                                                          their={User.GENDER_MALE: 'his', User.GENDER_FEMALE: 'her'}
-                                                                   [self.post.user.gender])
+                                                                   [self.post.poster.gender])
 
     def image(self):
-        return self.post.user.profile_picture
+        return self.post.poster.profile_picture
 
 
 Activity = Union[Comment, Reaction]
@@ -339,6 +353,7 @@ class ActivityNotification(Notification):
         return self.activities[0].user.profile_picture
 
 
+random_people = []
 friends = []
 user_feed = []
 notifications = []

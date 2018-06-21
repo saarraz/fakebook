@@ -2,7 +2,7 @@ import json
 import time
 import datetime
 from io import StringIO
-
+import sys
 import os
 from flask import Flask, Response, send_from_directory, abort, request
 from flask_uploads import UploadSet, configure_uploads, IMAGES
@@ -18,7 +18,9 @@ manager = None
 
 def return_json(func):
     def wrapper(*args, **kwargs):
-        return Response(json.dumps(func(*args, **kwargs)), mimetype='application/json')
+        resp = json.dumps(func(*args, **kwargs))
+        print(resp, file=sys.stderr)
+        return Response(resp, mimetype='application/json')
     wrapper.__name__ = func.__name__
     return wrapper
 
@@ -32,8 +34,15 @@ def login(access_token):
 
 
 @app.route('/users/<user_id>', methods=['GET'])
+@return_json
 def user(user_id):
-    return model.User.from_id(user_id).to_json()
+    return model.User.from_id(int(user_id)).to_json()
+
+
+@app.route('/pages/<page_id>', methods=['GET'])
+@return_json
+def page(page_id):
+    return model.Page.from_id(int(page_id)).to_json()
 
 
 @app.route('/feed/from/<from_time>', methods=['GET'])
@@ -46,7 +55,7 @@ def feed(from_time):
         from_time = datetime.datetime(year=1970, month=1, day=1)
     return {
         'posts': sorted([post.to_json() for post in model.Post.all() if post.time > from_time],
-                        key=lambda post: post['time']),
+                        key=lambda post: post['time'])[::-1],
         'time': time.mktime(datetime.datetime.now().timetuple())
     }
 
@@ -77,7 +86,7 @@ def mark_notification_as_read(id):
 @app.route('/images/<image_id>', methods=['GET'])
 def image(image_id):
     img = model.Image.from_id(int(image_id))
-    send_from_directory(os.path.dirname(img.path), os.path.basename(img.path))
+    return send_from_directory(os.path.dirname(img.path), os.path.basename(img.path))
 
 
 @app.route('/images', methods=['POST'])
