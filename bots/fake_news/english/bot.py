@@ -39,7 +39,12 @@ class EnglishFakeNewsBot(PostBot):
     INTRODUCTION = [
         'BREAKING NEWS',
         'SCANDAL',
-        'LATEST NEWS'
+        'LATEST NEWS',
+        'TRUMP',
+        'AMAZING',
+        'SHOCKING',
+        'WATCH',
+        ''
     ]
 
     VERB = [

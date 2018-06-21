@@ -8,19 +8,23 @@ import time
 import random
 
 import random_name
+import topic.detect
 from bots.fake_news.english.bot import EnglishFakeNewsBot
+from bots.fake_news.hebrew.main import HebrewFakeNewsBot
 from bots.random_post.bot import RandomUserPostBot
 
 
 class Manager(object):
     BIRTHDAY_INTERVAL = datetime.timedelta(hours=1)
+    BIRTHDAY_UPSET_INTERVAL = datetime.timedelta(minutes=5)
 
     def __init__(self, access_token):
         self.access_token = access_token
         self._last_birthday_determination_time = None
         self._bots = [
             EnglishFakeNewsBot(),
-            RandomUserPostBot()
+            RandomUserPostBot(),
+            HebrewFakeNewsBot()
         ]
         self.__generate_initial_content()
 
@@ -55,7 +59,24 @@ class Manager(object):
         while True:
             self.__determine_birthdays()
             self.__send_birthday_notifications()
+            self.__upset_birthday_boys()
             time.sleep(5)
+
+    def __upset_birthday_boys(self):
+        try:
+            birthday_notification = next(n for n in model.BirthdayNotification.all()
+                                         if n.date == datetime.datetime.today())
+            if datetime.datetime.now() - birthday_notification.time > self.BIRTHDAY_UPSET_INTERVAL:
+                for birthday_boy in birthday_notification.users:
+                    try:
+                        post = next(p for p in model.Post.all() if p.timeline == birthday_boy
+                                    and p.poster == model.User.main_user())
+                    except StopIteration:
+                        # User did not wish us a happy birthday! be angry at him
+                        if birthday_boy.birthday_upsetness == 0:
+                            birthday_boy.birthday_upsetness = 1
+        except StopIteration:
+            pass
 
     def __determine_birthdays(self):
         if self._last_birthday_determination_time is None \
@@ -74,9 +95,10 @@ class Manager(object):
 
                 if user not in notification_from_today.users:
                     notification_from_today.users.append(user)
+                    notification_from_today.time = datetime.datetime.now()
                     notification_from_today.read = False
             except StopIteration:
-                model.notifications.append(model.BirthdayNotification([user], datetime.datetime.today()))
+                model.notifications.append(model.BirthdayNotification([user], datetime.datetime.now()))
 
     def on_upload_image(self, path: str) -> model.Image:
         return model.Image(path)
@@ -84,6 +106,78 @@ class Manager(object):
     def on_user_post(self, text: str, image: Optional[model.Image]) -> model.Post:
         post = model.Post(datetime.datetime.now(), text, image, model.User.main_user())
         model.user_feed.append(post)
+        if post.image is None:
+            upset_birthday_boys = [u for u in model.User.all()
+                                   if 0 < u.birthday_upsetness < model.User.MAX_BIRTHDAY_UPSETNESS]
+            if upset_birthday_boys:
+                def send_angry_replies():
+                    try:
+                        post_topic = topic.detect.get_topic(post.text)
+                    except ValueError:
+                        return
+                    time.sleep(random.randint(5, 10))
+                    first_commenter = upset_birthday_boys[0]
+                    first_comment_text = random.choice([
+                        'יש לך זמן לכתוב על {topic}, אבל להגיד מזל טוב לא נכנס בלו"ז. נחמד לראות את סדר העדיפויות'.format(topic=post_topic),
+                        'אני מבי{} שמאוד חשוב לך {topic}, יותר ממני אפילו (מה התאריך היום?)'.format('ן' if first_commenter.gender == model.User.GENDER_MALE else 'נה', topic=post_topic),
+                        'יש לך זמן לכתוב על {topic}, אבל להגיד מזל טוב לא נכנס בלו"ז. חבר חרא'.format(topic=post_topic),
+                        'יש לך זמן לחפור על {topic}, אבל להגיד מזל טוב לא נכנס בלו"ז. אין בעיה.'.format(topic=post_topic)
+                    ])
+                    self.react(first_commenter, post, random.choice(model.Reaction.NEGATIVE_TYPES))
+                    first_comment = self.comment(first_commenter, post, first_comment_text)
+                    if len(upset_birthday_boys) > 1:
+                        time.sleep(random.randint(10, 30))
+                        second_commenter = random.choice(upset_birthday_boys[1:])
+                        self.react(second_commenter, post, random.choice(model.Reaction.NEGATIVE_TYPES))
+                        self.react(second_commenter, first_comment, model.Reaction.LIKE)
+                        first_comment.reactions.append(model.Reaction(second_commenter, first_comment,
+                                                                      model.Reaction.LIKE, datetime.datetime.now()))
+                        second_comment_text = random.choice([
+                            'גם לי {him} לא כתב{} כלום... '.format('' if second_commenter.gender == model.User.GENDER_MALE else 'ה', him='הוא' if second_commenter.gender == model.User.GENDER_MALE else 'היא'),
+                            'אנחנו באותה סירה. אפס אכפתיות',
+                            'גם אני אותו דבר, חרא חבר באמת'
+                        ])
+                        self.comment(second_commenter, first_comment, second_comment_text)
+
+                threading.Thread(target=send_angry_replies).start()
+        else:
+            # Image post
+            def reply_to_image():
+                liking_friends = random.sample(model.friends, random.randint(10, 80))
+                for friend in liking_friends:
+                    time.sleep(random.randint(1, 70))
+                    self.react(friend, post, random.choice([model.Reaction.LIKE, model.Reaction.LOVE]))
+                    if random.random() < 0.1:
+                        def girlify(word):
+                            return word + word[-1] * random.randint(1, 10)
+                        target_is_male = model.User.main_user().is_male()
+                        self.comment(friend, post, (
+                            girlify(random.choice([
+                                'מהמם' if target_is_male else 'מהממת',
+                                'מושלם' if target_is_male else 'מושלמת',
+                                ('הורס' if target_is_male else 'הורסת')
+                                + ('את הבריאות' if random.random() < .5 else ''),
+                                ('חתיך' if target_is_male else '')
+                                + ('את הבריאות' if random.random() < .5 else ''),
+                                'יפה שלי',
+                                ('לא' if random.random() < .5 else '') + 'אני מתה',
+                                ('לא' if random.random() < .5 else '') + 'אין דברים כאל' + random.choice(['ה', 'ו']),
+                            ]))
+                            if not friend.is_male()
+                            else random.choice(
+                                [
+                                    'תמונה יפה ' + (random.choice(['חיים', 'מאמי']) if not target_is_male else random.choice(['גבר','אחי'])) + ' שלי',
+                                    'לא רע',
+                                    'נדירה'
+                                ] +
+                                (['אחלה אופי'] if not target_is_male else [
+                                    'אח יקר',
+                                    'אחי'
+                                    + ''.join('י' if random.random() < .9 else 'ע' for i in range(random.randint(1, 10))),
+                                ])
+                            )
+                        ))
+            threading.Thread(target=reply_to_image).start()
         return post
 
     def on_remove_reaction(self, target: model.Reactable):
@@ -119,6 +213,13 @@ class Manager(object):
         reaction = model.Reaction(who, what, how, when if when is not None else datetime.datetime.now())
         what.reactions[who] = reaction
         self.notify_activity(reaction)
+        return reaction
+
+    def comment(self, who: model.User, what: model.Reactable, text: str):
+        comment = model.Comment(text, who, what)
+        what.comments.append(comment)
+        self.notify_activity(comment)
+        return comment
 
     def notify_activity(self, activity: model.Activity) -> model.ActivityNotification:
         for notification in model.Notification.all():

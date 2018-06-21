@@ -40,6 +40,8 @@ class RandomUserPostBot(object):
         'חחחחחחחחחחחחחחחח',
         'כל כך נכון. {good_day}',
         'גורם לך לחשוב. {good_day}',
+        'די נכון. {good_day}',
+        'הסתכלות שונה על החיים. {good_day}',
         'מדהיםםםם!!! {good_day}',
         '{good_day}'
     ]
@@ -48,20 +50,21 @@ class RandomUserPostBot(object):
         'יום טוב',
         'יום טוב אנשים',
         'בוקר טוב',
-        'גוד ווייבססס'
+        'גוד ווייבססס',
+        ''
     ]
 
     def generate(self, user, when):
-        if random.random() > 2:
+        if random.random() < 0.1:
             driver = webdriver.Chrome(r'chromedriver')
             driver.get('https://tomforth.co.uk/guardiancomments/')
             comment = driver.find_element_by_class_name('commentBody')
-            comment = Translator().translate(comment.text, dest='he')
+            comment = Translator().translate(comment.text, dest='he').text
             driver.close()
             return model.Post(when, comment, None, user)
         else:
             image = requests.get(requests.get('http://inspirobot.me/''api?generate=true').content).content
-            path = os.path.join(model.IMAGE_DIR, '{}.jpg'.format(str(random.randint(0, 0xffffffff))))
+            path = os.path.join(model.IMAGE_DIR, 'generated', '{}.jpg'.format(str(random.randint(0, 0xffffffff))))
             open(path, 'wb').write(image)
             return model.Post(when, random.choice(self.IMAGE_COMMENTS).format(good_day=random.choice(self.GOOD_DAY)),
                               model.Image(path), user)

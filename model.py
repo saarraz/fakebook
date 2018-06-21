@@ -66,10 +66,11 @@ class Reaction(object):
     SAD = 1
     LOVE = 2
     HAHA = 3
-    FUCK_YOU = 4
+    DISLIKE = 4
     SHIT = 5
     THROW_UP = 6
-    TYPES = [LIKE, SAD, LOVE, HAHA, FUCK_YOU, SHIT, THROW_UP]
+    NEGATIVE_TYPES = [THROW_UP, SHIT, DISLIKE, SAD]
+    TYPES = [LIKE, SAD, LOVE, HAHA, DISLIKE, SHIT, THROW_UP]
 
     def __init__(self, user, target, type, time):
         self.user = user
@@ -86,8 +87,8 @@ class Reaction(object):
 
 
 class User(Node):
-    NORMAL = 0
-    UPSET_BIRTHDAY = 1
+
+    MAX_BIRTHDAY_UPSETNESS = 0
 
     GENDER_MALE = 0
     GENDER_FEMALE = 1
@@ -98,11 +99,14 @@ class User(Node):
         self.full_name = full_name
         self.profile_picture = profile_picture
         self.birthday = None
-        self.mode = self.NORMAL
+        self.birthday_upsetness = 0
 
     def to_json(self):
         return {'id': self.id, 'full_name': self.full_name, 'profile_picture': self.profile_picture.id,
                 'gender': self.gender}
+
+    def is_male(self):
+        return self.gender == self.GENDER_MALE
 
     _main_user = None
 
@@ -152,12 +156,14 @@ class Reactable(Node):
 
 class Post(Reactable):
 
-    def __init__(self, _time: datetime.datetime, _text: str, _img: Optional[Image], poster: Union[User, Page]):
+    def __init__(self, _time: datetime.datetime, _text: str, _img: Optional[Image], poster: Union[User, Page],
+                 timeline: Optional[Union[User, Page]]):
         super(Post, self).__init__()
         self.image = _img
         self.text = _text
         self.time = _time
         self.poster = poster
+        self.timeline = timeline
         self.views = None
         # self.sentiment =
 
@@ -175,9 +181,13 @@ class Post(Reactable):
         }
 
     def target_string(self):
-        return '{whose} {post}'.format(whose='your' if self.poster == User.main_user()
+        return '{whose} {post}{where}'.format(whose='your' if self.poster == User.main_user()
                                                           else '${}$\'s'.format(self.poster.full_name),
-                                       post='post' if self.image is None else 'photo')
+                                              post='post' if self.image is None else 'photo',
+                                              where='' if self.timeline is None
+                                                    else 'on ${}$\'s timeline'.format(self.timeline.full_name
+                                                                                      if isinstance(self.timeline, User)
+                                                                                      else self.timeline.name))
 
 
 class Comment(Reactable):
@@ -259,9 +269,9 @@ class BirthdayNotification(Notification):
         'Just so you know, {they} didn\'t wish you anything on your birthday.'
     ]
 
-    def __init__(self, users: List[User], date: datetime.datetime):
-        super(BirthdayNotification, self).__init__(date)
-        self.date = date
+    def __init__(self, users: List[User], time: datetime.datetime):
+        super(BirthdayNotification, self).__init__(time)
+        self.date = time.date()
         self.users = users
         self.action_call = random.choice(self.ACTION_CALLS)
 

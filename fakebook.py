@@ -86,6 +86,7 @@ def mark_notification_as_read(id):
 @app.route('/images/<image_id>', methods=['GET'])
 def image(image_id):
     img = model.Image.from_id(int(image_id))
+    print(img.path)
     return send_from_directory(os.path.dirname(img.path), os.path.basename(img.path))
 
 
