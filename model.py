@@ -206,7 +206,7 @@ class Comment(Reactable):
     def to_json(self):
         return {
             'text': self.text,
-            'reactions': self.reactions,
+            'reactions': [reaction.to_json() for reaction in self.reactions],
             'user': self.user.id,
             'replies': [reply.to_json() for reply in self.comments]
         }

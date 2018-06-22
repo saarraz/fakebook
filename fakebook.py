@@ -18,8 +18,10 @@ manager = Manager('asda')
 
 def return_json(func):
     def wrapper(*args, **kwargs):
-        resp = json.dumps(func(*args, **kwargs))
-        print(resp, file=sys.stderr)
+
+        res = func(*args, **kwargs)
+        print(res, file=sys.stderr)
+        resp = json.dumps(res)
         return Response(resp, mimetype='application/json')
     wrapper.__name__ = func.__name__
     return wrapper
@@ -28,8 +30,8 @@ def return_json(func):
 @app.route('/login/<access_token>', methods=['POST'])
 @return_json
 def login(access_token):
-    global manager
-    manager = Manager(access_token)
+    #global manager
+    #manager = Manager(access_token)
     return {'user_id': model.User.main_user().id}
 
 
@@ -86,7 +88,8 @@ def mark_notification_as_read(id):
 @app.route('/images/<image_id>', methods=['GET'])
 def image(image_id):
     img = model.Image.from_id(int(image_id))
-    print(img.path)
+    print(img.path, os.path.exists(img.path))
+
     return send_from_directory(os.path.dirname(img.path), os.path.basename(img.path))
 
 
@@ -124,23 +127,32 @@ def react_to_post(post_id):
     return react_to_reactable(post)
 
 
+@app.route('/posts/<post_id>', methods=['GET'])
+@return_json
+def post(post_id):
+    post = model.Post.from_id(int(post_id))
+    return post.to_json()
+
+
 @app.route('/comments/<comment_id>/react', methods=['DELETE', 'POST'])
 def react_to_comment(comment_id):
     comment = model.Comment.from_id(int(comment_id))
     return react_to_reactable(comment)
 
 
+@return_json
 def react_to_reactable(target: model.Reactable):
     if request.method == 'DELETE':
         manager.on_remove_reaction(target)
     else:  # POST
         type = int(request.form['type'])
         manager.on_react(target, type)
+    return {}
 
-
+@return_json
 def comment_on_reactable(target: model.Reactable):
-    manager.on_comment(target)
-
+    manager.on_comment(target, request.form['text'])
+    return {}
 
 if __name__ == '__main__':
     app.run('0.0.0.0', 8000)

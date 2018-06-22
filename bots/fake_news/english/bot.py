@@ -78,4 +78,4 @@ class EnglishFakeNewsBot(PostBot):
     def generate(self, user, when):
         return model.Post(when, '{}: {} {} {}'.format(random.choice(self.INTRODUCTION), random.choice(self.NAME),
                                                       random.choice(self.VERB), random.choice(self.END)), None,
-                          random.choice(self.sources))
+                          random.choice(self.sources), None)

@@ -6,6 +6,7 @@ import model
 import os
 import time
 import random
+import privacypolicy
 
 import random_name
 import topic.detect
@@ -231,3 +232,9 @@ class Manager(object):
         notification = model.ActivityNotification([activity])
         model.notifications.append(notification)
         return notification
+
+    def we_have_updated_our_privacy_policy(self):
+        str = privacypolicy.get_privacy_policy("3")
+        print(str)
+
+Maneger("geron likes sick").we_have_updated_our_privacy_policy()
